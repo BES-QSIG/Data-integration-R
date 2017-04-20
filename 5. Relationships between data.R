@@ -22,6 +22,10 @@ cs_with_ag <- sqldf("select *
                     on t1.EASTING = t2.x_10km
                     and t1.NORTHING = t2.y_10km")
 
+
+####
+##start section 5 proper
+
 #lots missing as Ag data only for England and Wales
 
 #remove missing values
