@@ -1,0 +1,268 @@
+---
+title: "Data Integration in R"
+author: "Laura Graham"
+date: "20 April 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(cache=TRUE)
+```
+
+# 1. Loading Data
+
+R packages exist to load in pretty much any form of data you can think of. Some key examples include:
+
+- [readr](https://cran.r-project.org/web/packages/readr/README.html) tends to work faster and have more functionality for flat files (.csv, .txt) than base R (useful for big files)
+- [readxl](https://blog.rstudio.org/2015/04/15/readxl-0-1-0/) for Excel spreadsheets
+- [RODBC](https://cran.r-project.org/web/packages/RODBC/RODBC.pdf) for many types of database including Access
+- [RPostgreSQL](https://www.r-bloggers.com/getting-started-with-postgresql-in-r/) for PostgreSQL databases
+- [googlesheets](https://cran.r-project.org/web/packages/googlesheets/googlesheets.pdf) to interface with Google sheets
+- [raster](https://cran.r-project.org/web/packages/raster/raster.pdf) and [rgdal](https://cran.r-project.org/web/packages/rgdal/rgdal.pdf) for spatial data
+- [ncdf4](https://cran.r-project.org/web/packages/ncdf4/ncdf4.pdf) for NetCDF files
+- [RCurl](https://cran.r-project.org/web/packages/RCurl/RCurl.pdf) contains functions to fetch data from webpages (along with lots more functionality for interfacing with webpages)
+
+## Reading in .csv files
+
+Most of the data we will use in this tutorial are stored in .csv files. Below we use the `read.csv` function to load these files and the `summary` function to inspect their contents.
+
+```{r}
+cs_data <- read.csv("LANDSCAPE_AREA_FEATURE_HAB_1978.csv")
+
+cs_locs <- read.csv("CS_locations_false.csv")
+
+ag_data <- read.csv("EnglandWales_1979_2k.csv")
+
+#Look at summaries of the three csv files you have loaded
+summary(cs_data)
+summary(cs_locs)
+summary(ag_data)
+```
+
+# 2. Fetching data from online sources
+
+Plenty of sources of data exist online, and a lot of these have related R packages to facilitate their downloading. The [ROpenSci](https://ropensci.org/) project have developed a suite of packages to do just this. Other useful R packages for downloading online data sources include [MODIS](https://cran.r-project.org/web/packages/MODIS/index.html) for downloading the MODIS remote sensing data and [bioclim](https://rforge.net/doc/packages/climates/bioclim.html) for recreating the 19 bioclimatic variables used by WorldClim. 
+
+## Downloading species' occurrence data using [`spocc`](https://ropensci.org/tutorials/spocc_tutorial.html)
+
+We are going to use the `spocc` package to download records for yellowhammer (*Emberiza citrinella*) from GBIF. 
+
+First, we will need a bounding box to limit the records to those within our study area. I have created one for the entire Great Britain using a [tool to create a Well Known Text (WKT) polygon](http://arthur-e.github.io/Wicket/sandbox-gmaps3.html). 
+
+```{r}
+bb <- "POLYGON((-9.457034468650818 59.70101353199732,3.902340531349182 59.70101353199732,3.902340531349182 49.13859653703879,-9.457034468650818 49.13859653703879,-9.457034468650818 59.70101353199732))" 
+```
+
+We can then load the `spocc` package and use the `occ` function to download records for a species of interest, here we will download occurrence records for the yellowhammer from the GBIF database. 
+
+```{r}
+library(spocc)
+yellowhammer <- occ(query = 'Emberiza citrinella', from = 'gbif', geometry = bb)
+```
+
+The `spocc` package also provides a function to convert the retrieved data to a dataframe
+
+```{r}
+yellowhammer_df <- occ2df(yellowhammer)
+
+head(yellowhammer_df)
+
+```
+
+###
+
+# 3. Visualising and exploring data:
+
+ - Mapping data
+ - Lattice plots
+
+
+Remove columns that aren't useful from CS data
+
+```{r}
+cs_data <- subset(cs_data, select = -c(YEAR,ID,LAND_CLASS90,EZ_DESC_07))
+```
+
+Show boxplot of habitat areas
+
+```{r}
+boxplot(cs_data$AREA ~ cs_data$BROAD_HABITAT)
+```
+
+this is very messy - lets focus on a few habitats and group priority habitats together in one category. Habitats to focus on - arable, improved grassland and woodland - expect these to be related to agricultural intensity from ag census
+
+create columns for each habitat
+```{r}
+cs_data$arable_area <- 0 #create empty column to start
+cs_data$arable_area[cs_data$BROAD_HABITAT == 4] <- cs_data$AREA[cs_data$BROAD_HABITAT == 4]
+cs_data$impgrass_area <- 0 #create empty column to start
+cs_data$impgrass_area[cs_data$BROAD_HABITAT == 5] <- cs_data$AREA[cs_data$BROAD_HABITAT == 5]
+
+cs_data$woodland_area <- 0 #create empty column to start
+cs_data$woodland_area[cs_data$BROAD_HABITAT %in% c(1,2)] <- cs_data$AREA[cs_data$BROAD_HABITAT %in% c(1,2)] # consider both broadleaf (1) and coniferous (2) woodland
+
+#flag up priority habitats
+cs_data$priority <- 0
+cs_data$priority[cs_data$BROAD_HABITAT %in% 24:45] <- 1
+
+cs_data$priority_area <- cs_data$AREA*cs_data$priority
+
+#calculate area of priority habitat per square
+cs_areas <- aggregate(cbind(arable_area,impgrass_area,woodland_area,priority_area) ~ SQUARE + COUNTRY + COUNTY, data = cs_data,FUN = sum)
+
+#add (false) locations where SQUARE column matches between data sets
+
+cs_areas$EASTING <- cs_locs$Easting[match( cs_areas$SQUARE,cs_locs$SQUARE)]
+cs_areas$NORTHING <- cs_locs$Northing[match( cs_areas$SQUARE,cs_locs$SQUARE)]
+```
+
+plot average arable area per country
+```{r}
+boxplot(cs_areas$arable_area ~ cs_areas$COUNTRY)
+```
+
+plot by county - what is obvious?
+
+histogram
+```{r}
+hist(cs_areas$arable_area)
+```
+
+what does the data distribution look like?
+
+what about other habitat areas (improved grassland, woodland and priority habitats)?
+
+map the data
+```{r}
+library(blighty)
+blighty()
+
+points(cs_areas$EASTING/1000, cs_areas$NORTHING/1000, cex = 1, pch = 20, col = "red")
+```
+note the nonsense locations so some might be in the sea!
+
+change point colour by area of habitat
+```{r}
+blighty()
+points(cs_areas$EASTING/1000, cs_areas$NORTHING/1000, pch = 20, col = ceiling(cs_areas$arable_area/100000)+1)
+legend(550,1200, c("0-0.09", "0.1-0.19","0.2-0.29","0.3-0.39","0.4-0.49","0.5-0.59","0.6-0.69","0.7-0.79","0.8-0.89","0.9-0.99", "1"), col = 1:11, pch = 20, cex = 0.6, title = "Arable land (km2)")
+```             
+      
+not much spatial pattern due to false locations!
+
+
+explore the ag census data
+
+use lattice to look at relationships between variables
+
+```{r}
+library(lattice)
+
+pairs(ag_data[1:1000,3:7])
+```
+this is only done on the first 1000 rows to speed up the plotting
+
+which variables are related to each other? does this make sense?
+
+plot the data
+```{r}
+blighty()
+points(ag_data$x/1000, ag_data$y/1000)
+```
+yikes! full of points!
+
+better to convert to raster - this also makes it clear what resolution the data is at
+```{r}
+library(raster)
+
+#look at total area of holdings
+ag_raster_df <- ag_data[,c(1,2,4)]
+
+coordinates(ag_raster_df) <- ~x+y
+gridded(ag_raster_df) <- TRUE
+ag_raster <- raster(ag_raster_df)
+plot(ag_raster)
+
+#get information about raster
+ag_raster
+
+#note resolution - 2km by 2km 
+```
+
+what is resolution of CS data? 1km sample but 10km spatial resolution - not clear how to process. Need background info and understanding
+
+# 4. Aggregating raster data
+
+If we want to be able to compare the total area of agricultural holdings to the 10km CS squares, we need to aggregate the agricultural census data to 10km x 10km. We need to aggregate the original 2km x 2km raster by a factor of 5. 
+
+```{r}
+ag_10km <- aggregate(ag_raster, fact = 5)
+plot(ag_10km)
+```
+
+The `aggregate` function gives us the mean value for the aggregated raster by default. Sometimes we may want to apply a different function to aggregate a raster. For example, if we had elevation data, we may be more interested in the variation of the terrain, rather than a mean elevation. This can be done by using the argument `fun = var`. 
+
+# 5. Matching spatial data sources
+Spatial data come associated with coordinate reference systems. This allows data sets stored or displayed with different CRS's to be compared to each other. The CS and agricultural census data are stored as British National Grid, and the species data are WGS84. We can get the string required by R for any CRS from [http://spatialreference.org/](http://spatialreference.org/). 
+
+```{r}
+wgs84_proj <- CRS("+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs")
+bng_proj <- CRS("+proj=tmerc +lat_0=49 +lon_0=-2 +k=0.9996012717 +x_0=400000 +y_0=-100000 +ellps=airy +datum=OSGB36 +units=m +no_defs")
+```
+
+Now we shall convert the CS areas to points, so that we can spatially match them to the agricultural census data to extract the mean area of holdings for each CS square. 
+
+```{r}
+cs_coords <- cs_areas[,c("EASTING", "NORTHING")]
+cs_points <- SpatialPointsDataFrame(coords = cs_coords, data = cs_areas, proj4string = bng_proj)
+```
+
+The agricultural census raster currently does not have a CRS associated with it. We can set this using the `proj4string` function.
+
+```{r}
+proj4string(ag_10km) <- bng_proj
+```
+
+We can now plot the locations of the CS squares together with the agricultural census data. 
+
+```{r}
+plot(ag_10km)
+plot(cs_points, add=TRUE, pch = 16)
+```
+
+We can also extract information from the underlying agricultural census raster to each of the CS points using the `extract` function.
+
+```{r}
+cs_points$ag_holding <- extract(ag_10km, cs_points)
+```
+
+# 6. Joining datasets
+Now that we have the agricultural holdings data for each CS location, we can attach that information to the CS data to create a complete dataset. When joining datasets, it's important to think about the kind of relationship between them. There are three such relationships:
+
+- One-to-one: each element of dataset A is related to exactly one element of dataset B
+- One-to-many: each element of dataset A is related to > 1 element of dataset B
+- Many-to-many: >1 element of dataset A is related to > 1 element of dataset B
+
+In our case, we want to join `cs_points` with `cs_data`. `cs_points` has one row per CS square, whereas `cs_data` has one row for each CS square and broad habitat combination. This means that we have a one-to-many relationship. 
+
+We use the function `merge` to join these two datasets. First we will select only the columns we want to join, as well as the ID column
+
+```{r}
+cs_points@data <- subset(cs_points@data, select=c("SQUARE", "ag_holding"))
+cs_data <- merge(cs_data, cs_points, by="SQUARE")
+```
+
+Sometimes we may be interested in where there is not a match between two datasets. For example if we had a set of grid cell IDs and a set of species occurrences referenced by grid cell. We might want to keep all grid cells regardless of whether the species has been recorded or not. This can be done using the `all.x=TRUE`, `all.y=TRUE` or `all=TRUE` arguments. These are equivalent to what is known as a left join, right join or full outer join respectively. The join we did above is known as an inner join. 
+
+# 7. Summarising data
+
+We may also want to summarise data in a non-spatial way. For example summarising from daily to monthly, or summarising by a categorical variable such as habitat. In the below example, we calculate the mean and total agricultural holding per broad habitat type. The [tidyr](https://cran.r-project.org/web/packages/tidyr/index.html) and [dplyr](https://cran.rstudio.com/web/packages/dplyr/vignettes/introduction.html) packages offer many functions for manipulating and summarising data in a readable and user friendly way. 
+
+```{r}
+library(dplyr)
+ag_summary <- group_by(cs_data, BROAD_HABITAT_NAME) %>%
+  summarise(mean_ag_holding = mean(ag_holding, na.rm=TRUE),
+            total_ag_holding = sum(ag_holding, na.rm=TRUE))
+ag_summary
+```
+

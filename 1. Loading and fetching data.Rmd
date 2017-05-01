@@ -1,5 +1,5 @@
 ---
-title: "1. Loading and fetching data"
+title: "Data Integration in R"
 author: "Laura Graham"
 date: "20 April 2017"
 output: html_document
@@ -69,3 +69,15 @@ head(yellowhammer_df)
 
 ```
 
+If we want to be able to compare the total area of agricultural holdings to the 10km CS squares, we need to aggregate the agricultural census data to 10km x 10km. We need to aggregate the original 2km x 2km raster by a factor of 5. 
+
+```{r}
+ag_10km <- aggregate(ag_raster, fact = 5)
+plot(ag_10km)
+```
+
+The `aggregate` function gives us the mean value for the aggregated raster by default. Sometimes we may want to apply a different function to aggregate a raster. For example, if we had elevation data, we may be more interested in the variation of the terrain, rather than a mean elevation. This can be done by using the argument `fun = var`. 
+
+```{r}
+
+```
