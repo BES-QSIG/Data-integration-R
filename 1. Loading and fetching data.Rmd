@@ -1,0 +1,71 @@
+---
+title: "1. Loading and fetching data"
+author: "Laura Graham"
+date: "20 April 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(cache=TRUE)
+```
+
+# Loading Data
+
+R packages exist to load in pretty much any form of data you can think of. Some key examples include:
+
+- [readr](https://cran.r-project.org/web/packages/readr/README.html) tends to work faster and have more functionality for flat files (.csv, .txt) than base R (useful for big files)
+- [readxl](https://blog.rstudio.org/2015/04/15/readxl-0-1-0/) for Excel spreadsheets
+- [RODBC](https://cran.r-project.org/web/packages/RODBC/RODBC.pdf) for many types of database including Access
+- [RPostgreSQL](https://www.r-bloggers.com/getting-started-with-postgresql-in-r/) for PostgreSQL databases
+- [googlesheets](https://cran.r-project.org/web/packages/googlesheets/googlesheets.pdf) to interface with Google sheets
+- [raster](https://cran.r-project.org/web/packages/raster/raster.pdf) and [rgdal](https://cran.r-project.org/web/packages/rgdal/rgdal.pdf) for spatial data
+- [ncdf4](https://cran.r-project.org/web/packages/ncdf4/ncdf4.pdf) for NetCDF files
+- [RCurl](https://cran.r-project.org/web/packages/RCurl/RCurl.pdf) contains functions to fetch data from webpages (along with lots more functionality for interfacing with webpages)
+
+## Reading in .csv files
+
+Most of the data we will use in this tutorial are stored in .csv files. Below we use the `read.csv` function to load these files and the `summary` function to inspect their contents.
+
+```{r}
+cs_data <- read.csv("LANDSCAPE_AREA_FEATURE_HAB_1978.csv")
+
+cs_locs <- read.csv("CS_locations_false.csv")
+
+ag_data <- read.csv("EnglandWales_1979_2k.csv")
+
+#Look at summaries of the three csv files you have loaded
+summary(cs_data)
+summary(cs_locs)
+summary(ag_data)
+```
+
+# Fetching data from online sources
+
+Plenty of sources of data exist online, and a lot of these have related R packages to facilitate their downloading. The [ROpenSci](https://ropensci.org/) project have developed a suite of packages to do just this. Other useful R packages for downloading online data sources include [MODIS](https://cran.r-project.org/web/packages/MODIS/index.html) for downloading the MODIS remote sensing data and [bioclim](https://rforge.net/doc/packages/climates/bioclim.html) for recreating the 19 bioclimatic variables used by WorldClim. 
+
+## Downloading species' occurrence data using [`spocc`](https://ropensci.org/tutorials/spocc_tutorial.html)
+
+We are going to use the `spocc` package to download records for yellowhammer (*Emberiza citrinella*) from GBIF. 
+
+First, we will need a bounding box to limit the records to those within our study area. I have created one for the entire Great Britain using a [tool to create a Well Known Text (WKT) polygon](http://arthur-e.github.io/Wicket/sandbox-gmaps3.html). 
+
+```{r}
+bb <- "POLYGON((-9.457034468650818 59.70101353199732,3.902340531349182 59.70101353199732,3.902340531349182 49.13859653703879,-9.457034468650818 49.13859653703879,-9.457034468650818 59.70101353199732))" 
+```
+
+We can then load the `spocc` package and use the `occ` function to download records for a species of interest, here we will download occurrence records for the yellowhammer from the GBIF database. 
+
+```{r}
+library(spocc)
+yellowhammer <- occ(query = 'Emberiza citrinella', from = 'gbif', geometry = bb)
+```
+
+The `spocc` package also provides a function to convert the retrieved data to a dataframe
+
+```{r}
+yellowhammer_df <- occ2df(yellowhammer)
+
+head(yellowhammer_df)
+
+```
+
