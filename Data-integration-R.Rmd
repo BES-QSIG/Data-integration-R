@@ -2,12 +2,25 @@
 title: "Data Integration in R"
 author: "Susan Jarvis and Laura Graham"
 date: "May 2017"
-output: html_document
+output:
+  html_document: default
+  pdf_document: default
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(cache=TRUE)
 ```
+
+# Before you start!
+
+The tutorial below relies on you having several R packages installed which are listed below. These can be installed using the `install.packages` command.
+
+- [lattice](https://cran.r-project.org/web/packages/lattice/index.html)
+- [spocc](https://cran.r-project.org/web/packages/spocc/index.html)
+- [blighty](https://cran.r-project.org/web/packages/blighty/index.html)
+- [raster](https://cran.r-project.org/web/packages/raster/index.html)
+- [dplyr](https://cran.r-project.org/web/packages/dplyr/index.html)
+
 
 # 1. Loading Data
 
@@ -26,7 +39,15 @@ R packages exist to load in pretty much any form of data you can think of. Some 
 
 Most of the data we will use in this tutorial are stored in .csv files. Below we use the `read.csv` function to load these files and the `summary` function to inspect their contents.
 
+*Hint* - The .csv files you require are in BES-QSIG/Data-integration-R folder on Github. To download the .csv files along with this document, click 'Clone or download' and select 'Download ZIP' to download a ZIP file with all the course contents. Unzip this and save the files to a location on your computer.
+
+```{r, eval = FALSE}
+#set working directory
+setwd("Put the path to the csv files you downloaded from Github here e.g. C:/My name/Documents/")
+```
+
 ```{r}
+#read in csv files using read.csv
 cs_data <- read.csv("LANDSCAPE_AREA_FEATURE_HAB_1978.csv")
 
 cs_locs <- read.csv("CS_locations_false.csv")
@@ -73,105 +94,129 @@ head(yellowhammer_df)
 
 # 3. Visualising and exploring data:
 
- - Mapping data
- - Lattice plots
+Here we will look in more detail at the data from the .csv files you loaded in part 1. There are three files:
+- EnglandWales_1979_2k.csv gives a range of Agricultural Census variables for year 1979 at 2km gridded resolution. A range of additional variables and/or years can be downloaded from [agcensus](https://access.edina.ac.uk/agcensus/) 
+- LANDSCAPE_AREA_FEATURE_HAB_1978.csv gives the Countryside Survey habitat areas for 256 1km squares surveyed in 1978. Additional datasets and/or years can be downloaded from the [EIDC](https://catalogue.ceh.ac.uk/eidc/documents#term=Countryside+Survey&page=1) 
+- CS_locations_false.csv gives (incorrect) locations for the 256 CS squares. The locations are confidential which is why false locations are given for the purposes of this tutorial. True locations are available on request at 10km resolution via the [EIDC](https://catalogue.ceh.ac.uk/eidc/documents#term=Countryside+Survey&page=1) 
 
-
-Remove columns that aren't useful from CS data
+Firstly, we can remove some columns that aren't useful from the CS data.
 
 ```{r}
 cs_data <- subset(cs_data, select = -c(YEAR,ID,LAND_CLASS90,EZ_DESC_07))
 ```
 
-Show boxplot of habitat areas
+The CS data holds data on habitat area. We can make a simple boxplot to compare the average habitat area per 1 km Countryside Survey sample square between habitats.
 
 ```{r}
 boxplot(cs_data$AREA ~ cs_data$BROAD_HABITAT)
 ```
 
-this is very messy - lets focus on a few habitats and group priority habitats together in one category. Habitats to focus on - arable, improved grassland and woodland - expect these to be related to agricultural intensity from ag census
+This is very messy! Let's focus on a few habitats of interest and group priority habitats together in one category. Arable, improved grassland and woodland, along with the total priority habitat area, might be expected to be related to agricultural intensity so we'll focus on these habitats to start with.
 
-create columns for each habitat
+Firstly, we'll create new columns for the area of each of our habitats of interest
+
 ```{r}
 cs_data$arable_area <- 0 #create empty column to start
-cs_data$arable_area[cs_data$BROAD_HABITAT == 4] <- cs_data$AREA[cs_data$BROAD_HABITAT == 4]
+cs_data$arable_area[cs_data$BROAD_HABITAT == 4] <- cs_data$AREA[cs_data$BROAD_HABITAT == 4] #arable has BROAD_HABITAT code 4
 cs_data$impgrass_area <- 0 #create empty column to start
-cs_data$impgrass_area[cs_data$BROAD_HABITAT == 5] <- cs_data$AREA[cs_data$BROAD_HABITAT == 5]
-
+cs_data$impgrass_area[cs_data$BROAD_HABITAT == 5] <- cs_data$AREA[cs_data$BROAD_HABITAT == 5] #improved grassland has BROAD_HABITAT code 5 
 cs_data$woodland_area <- 0 #create empty column to start
-cs_data$woodland_area[cs_data$BROAD_HABITAT %in% c(1,2)] <- cs_data$AREA[cs_data$BROAD_HABITAT %in% c(1,2)] # consider both broadleaf (1) and coniferous (2) woodland
+cs_data$woodland_area[cs_data$BROAD_HABITAT %in% c(1,2)] <- cs_data$AREA[cs_data$BROAD_HABITAT %in% c(1,2)] #this considers both broadleaf (code = 1) and coniferous (2) woodland
+```
 
+Now we will create a new column of priority habitat area
+
+```{r}
 #flag up priority habitats
 cs_data$priority <- 0
 cs_data$priority[cs_data$BROAD_HABITAT %in% 24:45] <- 1
 
 cs_data$priority_area <- cs_data$AREA*cs_data$priority
+```
 
+
+Finally, we can aggregate the data by CS 1km square (SQUARE field) to calculate the sum of priority habitat for each square
+
+```{r}
 #calculate area of priority habitat per square
 cs_areas <- aggregate(cbind(arable_area,impgrass_area,woodland_area,priority_area) ~ SQUARE + COUNTRY + COUNTY, data = cs_data,FUN = sum)
+```
 
+We can now plot the average area of each habitat type in a 1 km square for each country e.g. below we plot the area of arable for each country.
+
+```{r}
+boxplot(cs_areas$arable_area ~ cs_areas$COUNTRY)
+```
+
+We can also look at the distributions of each habitat area by plotting a histogram.
+
+```{r}
+hist(cs_areas$arable_area)
+```
+
+
+You can investigate other habitat areas (improved grassland, woodland and priority habitats) by changing the column (`$`) defined in the `boxplot` and `hist` commands.
+
+
+### Mapping the Countryside Survey data
+
+To enable us to map the Countryside Survey data we need to join it to location data which sits in a separate file called 'CS_locs'.
+
+The next step is to join the habitat data to this location information. Note these locations are incorrect due to confidentiality over Countryside Survey locations.
+
+
+```{r}
 #add (false) locations where SQUARE column matches between data sets
 
 cs_areas$EASTING <- cs_locs$Easting[match( cs_areas$SQUARE,cs_locs$SQUARE)]
 cs_areas$NORTHING <- cs_locs$Northing[match( cs_areas$SQUARE,cs_locs$SQUARE)]
 ```
 
-plot average arable area per country
-```{r}
-boxplot(cs_areas$arable_area ~ cs_areas$COUNTRY)
-```
+We will use the `blighty` package to map the data.
 
-plot by county - what is obvious?
-
-histogram
-```{r}
-hist(cs_areas$arable_area)
-```
-
-what does the data distribution look like?
-
-what about other habitat areas (improved grassland, woodland and priority habitats)?
-
-map the data
-```{r}
+```{r, verbose = F}
 library(blighty)
 blighty()
 
 points(cs_areas$EASTING/1000, cs_areas$NORTHING/1000, cex = 1, pch = 20, col = "red")
 ```
-note the nonsense locations so some might be in the sea!
 
-change point colour by area of habitat
-```{r}
+Note the nonsense locations so some might be in the sea!
+
+We can colour the points by the area of one of the habitats (in this case arable):
+
+```{r, verbose = F}
 blighty()
 points(cs_areas$EASTING/1000, cs_areas$NORTHING/1000, pch = 20, col = ceiling(cs_areas$arable_area/100000)+1)
 legend(550,1200, c("0-0.09", "0.1-0.19","0.2-0.29","0.3-0.39","0.4-0.49","0.5-0.59","0.6-0.69","0.7-0.79","0.8-0.89","0.9-0.99", "1"), col = 1:11, pch = 20, cex = 0.6, title = "Arable land (km2)")
 ```             
       
-not much spatial pattern due to false locations!
+Not much spatial pattern due to the false locations!
 
 
-explore the ag census data
 
-use lattice to look at relationships between variables
+
+### Exploring and mapping the Agcensus data
+
+The Agcensus data in `ag_data` has a selection of data available from the [agcensus](https://access.edina.ac.uk/agcensus/) webpage (total number of holdings, total area of holdings, total area of crops and fallow land, area of rough grass, amount of woodland on holding - all areas in hectares). We can use the `lattice` package to easily look at relationships between different data.
 
 ```{r}
 library(lattice)
 
 pairs(ag_data[1:1000,3:7])
 ```
-this is only done on the first 1000 rows to speed up the plotting
 
-which variables are related to each other? does this make sense?
+Here only data from the first 1000 rows are plotted to speed up drawing of the plot. Which variables are related to each other? does this make sense?
 
-plot the data
+We can then use the `blighty` package again to map the data.
+
 ```{r}
 blighty()
 points(ag_data$x/1000, ag_data$y/1000)
 ```
-yikes! full of points!
 
-better to convert to raster - this also makes it clear what resolution the data is at
+Yikes! The map is full of points! A better solution is to convert to raster data. This makes sense as the data are gridded and have a set resolution (2 km). We can convert the data using the `raster` package.
+
 ```{r}
 library(raster)
 
@@ -189,7 +234,7 @@ ag_raster
 #note resolution - 2km by 2km 
 ```
 
-what is resolution of CS data? 1km sample but 10km spatial resolution - not clear how to process. Need background info and understanding
+what is resolution of CS data? 1km sample but 10km spatial resolution! Because we don't have the 1km locations we will treat the CS data as if it is at 10km resolution.
 
 # 4. Aggregating raster data
 
