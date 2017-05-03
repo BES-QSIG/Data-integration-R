@@ -170,7 +170,6 @@ The next step is to join the habitat data to this location information. Note the
 
 ```{r}
 #add (false) locations where SQUARE column matches between data sets
-
 cs_areas$EASTING <- cs_locs$Easting[match( cs_areas$SQUARE,cs_locs$SQUARE)]
 cs_areas$NORTHING <- cs_locs$Northing[match( cs_areas$SQUARE,cs_locs$SQUARE)]
 ```
@@ -208,7 +207,7 @@ library(lattice)
 pairs(ag_data[1:1000,3:7])
 ```
 
-Here only data from the first 1000 rows are plotted to speed up drawing of the plot. Which variables are related to each other? does this make sense?
+Here only data from the first 1000 rows are plotted to speed up drawing of the plot. Which variables are related to each other? Does this make sense?
 
 We can then use the `blighty` package again to map the data.
 
@@ -352,14 +351,12 @@ However, we may need to remove rows where there is missing data for some analyse
 
 ```{r}
 cs_join_agCC <- cs_join_ag[complete.cases(cs_join_ag),]
-#124 obs left
 ```
 
 We can use the plot produced by the `pairs` function again to visualise relationships. We first use the `subset` function to remove unwanted variables.
 
 ```{r}
 cs_join_agCC <- subset(cs_join_agCC, select = -c(x_10km,y_10km,x,y))
-
 pairs(cs_join_agCC[,-c(1,2,3)]) # don't plot country/county columns
 ```
 
@@ -378,9 +375,9 @@ plot(cs_join_agCC$woodland_area, cs_join_agCC$Woodland.on.holding..c8.)
 cor(cs_join_agCC$woodland_area, cs_join_agCC$Woodland.on.holding..c8.)
 ```
 
-In this example there isn't much evidence for a relationship, but that might not be surprising given the fake CS locations!
+In this example there isn't much evidence for a relationship, but that might not be surprising given the incorrect CS locations!
 
-For most of the relationships between CS and Agcensus it might be appropriate to investigate correlations as it not clear which variable would affect which. The exception is relationships with easting and northing, it is clear that easting can affect arable area but not the other way round! In this case, a regression model can be built.
+For most of the relationships between CS and Agcensus it might be appropriate to investigate correlations as it not clear which variable would affect which. The exception is relationships with Easting and Northing, it is clear that Easting can affect arable area but not the other way round! In this case, a regression model can be built.
 
 Model with arable area measured in CS:
 
@@ -390,7 +387,7 @@ lm1 <- lm(arable_area ~ EASTING, data = cs_join_agCC)
 summary(lm1)
 ```
 
-Model with arable area from Agcensus:
+Model with crop area from Agcensus:
 
 ```{r}
 lm2 <- lm(Total.Crops...Fallow..c35. ~ EASTING, data = cs_join_agCC)
@@ -398,12 +395,13 @@ lm2 <- lm(Total.Crops...Fallow..c35. ~ EASTING, data = cs_join_agCC)
 summary(lm2)
 ```
 
+We can see when using the Agcensus data and Easting that there is more crop and fallow land in the east of the UK (this should be what we expected!).
 
 You can consider other relationships that can be investigated with regression relationships. Extensions to include multiple predictors or generalised linear models could be developed e.g. a zero inflated distribution could be used to describe the area of priority habitat.
 
-One aspect that has not been investigated in this short tutorial but could be a useful exercise to continue improving your skills in integration would be to look at change over time. We looked at the earliest Countryside Survey and matched to an appropriate Agricultural Census but the survey has been repeated three times since then. You could look at:
+One aspect that has not been investigated in this short tutorial but could be a useful exercise to continue improving your skills in integration would be to look at change over time. We looked at the earliest Countryside Survey and matched to an appropriate Agricultural Census but the survey has been repeated three times since then (1990, 1998 and 2007). You could look at:
 
-- Whether the patterns in data are the same now as they were in 1978
+- Whether the patterns in data were the same in 2007 as they were in 1978
 - Whether change in e.g. area of priority habitats is related to changes in agricultural practice
 - Whether additional covariates from either Agricultural Census or other sources (e.g. climate data) explain changes in habitat areas
 
