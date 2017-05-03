@@ -318,7 +318,7 @@ ag_summary <- group_by(cs_data, BROAD_HABITAT_NAME) %>%
 ag_summary
 ```
 
-#8. Relationships between data
+# 8. Relationships between data
 
 To look at relationships between habitat area and Agcensus data (specifically the total area of holdings) using the merged dataset created in section 6. However, we want to make two changes: 
 
@@ -417,7 +417,7 @@ Things to consider might be:
 - How to define an appropriate model to look at change over time
 
 
-#9. Interpretation and further reading
+# 9. Interpretation and further reading
 
 When considering how to intepret an integrated analysis we need to think about the assumptions we made in the analysis. For example, in the analysis above we assumed:
 
@@ -430,7 +430,7 @@ When considering how to intepret an integrated analysis we need to think about t
 Interpretation is more complex with an integrated analysis so put aside plenty of time to think about this.
 
 
-##Further reading
+## Further reading
 
 [A framework for data fusion in species distribution modelling (Pacifici *et al*)](http://onlinelibrary.wiley.com/doi/10.1002/ecy.1710/full)
 
@@ -441,7 +441,7 @@ Interpretation is more complex with an integrated analysis so put aside plenty o
 [BES guide to Data Management in Ecology and Evolution](http://www.britishecologicalsociety.org/wp-content/uploads/Publ_Data-Management-Booklet.pdf)
 
 
-##Contact us
+## Contact us
 
 This tutorial was put together for a Data Integration course due to run on 4th May 2017 which was unfortunately cancelled. Therefore we have not tested this course in a real life environment so there may be bugs and errors. Please let us know if you find any by contacting us at susjar@ceh.ac.uk or requesting access to the repository on Github. We are happy for you to re-use any part of this tutorial in any in-person or online course. 
 
@@ -449,7 +449,7 @@ This tutorial was put together for a Data Integration course due to run on 4th M
 This course was developed by the British Ecological Society Quantitative Ecology and Agricultural Ecology Special Interest Groups. You can contact the SIGs by email (quantitative@britishecologicalsociety.org and agricultural@britishecologicalsociety.org) or on Twitter (@BES_QE_SIG and @bes_aeg). 
 
 
-#Happy Data Integration!!
+# Happy Data Integration!!
 
 
 
