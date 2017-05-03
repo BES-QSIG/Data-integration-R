@@ -50,9 +50,7 @@ setwd("Put the path to the csv files you downloaded from Github here e.g. C:/My 
 ```{r}
 #read in csv files using read.csv
 cs_data <- read.csv("LANDSCAPE_AREA_FEATURE_HAB_1978.csv")
-
 cs_locs <- read.csv("CS_locations_false.csv")
-
 ag_data <- read.csv("EnglandWales_1979_2k.csv")
 ```
 
@@ -97,27 +95,29 @@ head(yellowhammer_df)
 
 # 3. Visualising and exploring data:
 
-Here we will look in more detail at the data from the .csv files you loaded in part 1. There are three files:
+Here we will look in more detail at the data from the .csv files you loaded in part 1. There are three tables:
 
-- EnglandWales_1979_2k.csv gives a range of Agricultural Census variables for year 1979 at 2km gridded resolution. A range of additional variables and/or years can be downloaded from [agcensus](https://access.edina.ac.uk/agcensus/) 
+- `ag_data` gives a range of Agricultural Census variables for year 1979 at 2km gridded resolution. A range of additional variables and/or years can be downloaded from [agcensus](https://access.edina.ac.uk/agcensus/) 
 
-- LANDSCAPE_AREA_FEATURE_HAB_1978.csv gives the Countryside Survey habitat areas for 256 1km squares surveyed in 1978. Additional datasets and/or years can be downloaded from the [EIDC](https://catalogue.ceh.ac.uk/eidc/documents#term=Countryside+Survey&page=1) 
+- `cs_data` gives the Countryside Survey habitat areas for 256 1km squares surveyed in 1978. Additional datasets and/or years can be downloaded from the [EIDC](https://catalogue.ceh.ac.uk/eidc/documents#term=Countryside+Survey&page=1) 
 
-- CS_locations_false.csv gives (incorrect) locations for the 256 CS squares. The locations are confidential which is why false locations are given for the purposes of this tutorial. True locations are available on request at 10km resolution via the [EIDC](https://catalogue.ceh.ac.uk/eidc/documents#term=Countryside+Survey&page=1) 
+- `cs_locs` gives (incorrect) locations for the 256 CS squares. The locations are confidential which is why false locations are given for the purposes of this tutorial. True locations are available on request at 10km resolution via the [EIDC](https://catalogue.ceh.ac.uk/eidc/documents#term=Countryside+Survey&page=1) 
 
-Firstly, we can remove some columns that aren't useful from the CS data.
+Firstly, we will look at the `cs_data` table and do some exploratory analysis of this data, before moving on to look at integrating this information with the `cs_locs` and `ag_data` tables.
+
+We can start by removing some columns that aren't useful from the CS data (year, ID code, land class and environmental zone which we won't be using in the analysis).
 
 ```{r}
 cs_data <- subset(cs_data, select = -c(YEAR,ID,LAND_CLASS90,EZ_DESC_07))
 ```
 
-The CS data holds data on habitat area. We can make a simple boxplot to compare the average habitat area per 1 km Countryside Survey sample square between habitats.
+The CS data holds data on habitat area mapped within each 1km square. We can make a simple boxplot to compare the average habitat area per 1km Countryside Survey sample square for each habitat.
 
 ```{r}
 boxplot(cs_data$AREA ~ cs_data$BROAD_HABITAT)
 ```
 
-This is very messy! Let's focus on a few habitats of interest and group priority habitats together in one category. Arable, improved grassland and woodland, along with the total priority habitat area, might be expected to be related to agricultural intensity so we'll focus on these habitats to start with.
+This is very messy and not very informative! Let's focus on a few habitats of interest and group the priority habitats (e.g. saltmarsh, blanket bog) together in one category. Arable, improved grassland and woodland, along with the total priority habitat area, might be expected to be related to agricultural intensity so we'll focus on these habitats to start with.
 
 Firstly, we'll create new columns for the area of each of our habitats of interest
 
@@ -133,10 +133,8 @@ cs_data$woodland_area[cs_data$BROAD_HABITAT %in% c(1,2)] <- cs_data$AREA[cs_data
 Now we will create a new column of priority habitat area
 
 ```{r}
-#flag up priority habitats
 cs_data$priority <- 0
 cs_data$priority[cs_data$BROAD_HABITAT %in% 24:45] <- 1
-
 cs_data$priority_area <- cs_data$AREA*cs_data$priority
 ```
 
@@ -144,15 +142,16 @@ cs_data$priority_area <- cs_data$AREA*cs_data$priority
 Finally, we can aggregate the data by CS 1km square (SQUARE field) to calculate the sum of priority habitat for each square
 
 ```{r}
-#calculate area of priority habitat per square
 cs_areas <- aggregate(cbind(arable_area,impgrass_area,woodland_area,priority_area) ~ SQUARE + COUNTRY + COUNTY, data = cs_data,FUN = sum)
 ```
 
-We can now plot the average area of each habitat type in a 1 km square for each country e.g. below we plot the area of arable for each country.
+We can now look at some exploratory plots of the aggregated data. For example, we could look at how the average area of arable habitat in each CS square varies between England, Scotland and Wales.
 
 ```{r}
 boxplot(cs_areas$arable_area ~ cs_areas$COUNTRY)
 ```
+
+It is fairly clear that the area of arable land in a 1km CS square tends to be higher in England than in Scotland and Wales. You can swap `arable_area` for `priority_area` to see if a similar pattern holds for the area of priority habitats.
 
 We can also look at the distributions of each habitat area by plotting a histogram.
 
@@ -160,13 +159,12 @@ We can also look at the distributions of each habitat area by plotting a histogr
 hist(cs_areas$arable_area)
 ```
 
-
-You can investigate other habitat areas (improved grassland, woodland and priority habitats) by changing the column (`$`) defined in the `boxplot` and `hist` commands.
+Here we can see that the majority of the 256 CS squares have relatively little arable area, with a long tail of squares with high areas of arable land. Does the same pattern occur in the distributions of the other habitats?
 
 
 ## Mapping the Countryside Survey data
 
-To enable us to map the Countryside Survey data we need to join it to location data which sits in a separate file called 'CS_locs'.
+To enable us to map the Countryside Survey data we need to join it to location data which sits in a separate file called `CS_locs`.
 
 The next step is to join the habitat data to this location information. Note these locations are incorrect due to confidentiality over Countryside Survey locations.
 
