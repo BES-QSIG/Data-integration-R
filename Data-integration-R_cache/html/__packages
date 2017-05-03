@@ -7,6 +7,5 @@ raster
 dplyr
 proto
 gsubfn
-DBI
 RSQLite
 sqldf
