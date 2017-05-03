@@ -20,6 +20,7 @@ The tutorial below relies on you having several R packages installed which are l
 - [blighty](https://cran.r-project.org/web/packages/blighty/index.html)
 - [raster](https://cran.r-project.org/web/packages/raster/index.html)
 - [dplyr](https://cran.r-project.org/web/packages/dplyr/index.html)
+- [sqldf](https://cran.r-project.org/web/packages/sqldf/index.html)
 
 
 # 1. Loading Data
@@ -53,7 +54,9 @@ cs_data <- read.csv("LANDSCAPE_AREA_FEATURE_HAB_1978.csv")
 cs_locs <- read.csv("CS_locations_false.csv")
 
 ag_data <- read.csv("EnglandWales_1979_2k.csv")
+```
 
+```{r, eval = F}
 #Look at summaries of the three csv files you have loaded
 summary(cs_data)
 summary(cs_locs)
@@ -76,7 +79,7 @@ bb <- "POLYGON((-9.457034468650818 59.70101353199732,3.902340531349182 59.701013
 
 We can then load the `spocc` package and use the `occ` function to download records for a species of interest, here we will download occurrence records for the yellowhammer from the GBIF database. 
 
-```{r}
+```{r, message = F}
 library(spocc)
 yellowhammer <- occ(query = 'Emberiza citrinella', from = 'gbif', geometry = bb)
 ```
@@ -95,8 +98,11 @@ head(yellowhammer_df)
 # 3. Visualising and exploring data:
 
 Here we will look in more detail at the data from the .csv files you loaded in part 1. There are three files:
+
 - EnglandWales_1979_2k.csv gives a range of Agricultural Census variables for year 1979 at 2km gridded resolution. A range of additional variables and/or years can be downloaded from [agcensus](https://access.edina.ac.uk/agcensus/) 
+
 - LANDSCAPE_AREA_FEATURE_HAB_1978.csv gives the Countryside Survey habitat areas for 256 1km squares surveyed in 1978. Additional datasets and/or years can be downloaded from the [EIDC](https://catalogue.ceh.ac.uk/eidc/documents#term=Countryside+Survey&page=1) 
+
 - CS_locations_false.csv gives (incorrect) locations for the 256 CS squares. The locations are confidential which is why false locations are given for the purposes of this tutorial. True locations are available on request at 10km resolution via the [EIDC](https://catalogue.ceh.ac.uk/eidc/documents#term=Countryside+Survey&page=1) 
 
 Firstly, we can remove some columns that aren't useful from the CS data.
@@ -158,7 +164,7 @@ hist(cs_areas$arable_area)
 You can investigate other habitat areas (improved grassland, woodland and priority habitats) by changing the column (`$`) defined in the `boxplot` and `hist` commands.
 
 
-### Mapping the Countryside Survey data
+## Mapping the Countryside Survey data
 
 To enable us to map the Countryside Survey data we need to join it to location data which sits in a separate file called 'CS_locs'.
 
@@ -174,10 +180,9 @@ cs_areas$NORTHING <- cs_locs$Northing[match( cs_areas$SQUARE,cs_locs$SQUARE)]
 
 We will use the `blighty` package to map the data.
 
-```{r, verbose = F}
+```{r, message = FALSE}
 library(blighty)
 blighty()
-
 points(cs_areas$EASTING/1000, cs_areas$NORTHING/1000, cex = 1, pch = 20, col = "red")
 ```
 
@@ -185,7 +190,7 @@ Note the nonsense locations so some might be in the sea!
 
 We can colour the points by the area of one of the habitats (in this case arable):
 
-```{r, verbose = F}
+```{r, message = F}
 blighty()
 points(cs_areas$EASTING/1000, cs_areas$NORTHING/1000, pch = 20, col = ceiling(cs_areas$arable_area/100000)+1)
 legend(550,1200, c("0-0.09", "0.1-0.19","0.2-0.29","0.3-0.39","0.4-0.49","0.5-0.59","0.6-0.69","0.7-0.79","0.8-0.89","0.9-0.99", "1"), col = 1:11, pch = 20, cex = 0.6, title = "Arable land (km2)")
@@ -196,7 +201,7 @@ Not much spatial pattern due to the false locations!
 
 
 
-### Exploring and mapping the Agcensus data
+## Exploring and mapping the Agcensus data
 
 The Agcensus data in `ag_data` has a selection of data available from the [agcensus](https://access.edina.ac.uk/agcensus/) webpage (total number of holdings, total area of holdings, total area of crops and fallow land, area of rough grass, amount of woodland on holding - all areas in hectares). We can use the `lattice` package to easily look at relationships between different data.
 
@@ -210,14 +215,16 @@ Here only data from the first 1000 rows are plotted to speed up drawing of the p
 
 We can then use the `blighty` package again to map the data.
 
-```{r}
+```{r,message = FALSE}
 blighty()
 points(ag_data$x/1000, ag_data$y/1000)
 ```
 
 Yikes! The map is full of points! A better solution is to convert to raster data. This makes sense as the data are gridded and have a set resolution (2 km). We can convert the data using the `raster` package.
 
-```{r}
+Also note we only have Agcensus data for England and Wales in this example.
+
+```{r, message = FALSE}
 library(raster)
 
 #look at total area of holdings
@@ -231,10 +238,10 @@ plot(ag_raster)
 #get information about raster
 ag_raster
 
-#note resolution - 2km by 2km 
+#note resolution - 2km by 2km (units are m)
 ```
 
-what is resolution of CS data? 1km sample but 10km spatial resolution! Because we don't have the 1km locations we will treat the CS data as if it is at 10km resolution.
+Obtaining the resolution of the Agcensus data is straightforward, however what is the resolution of the Countryside Survey data? The sample is at 1km resolution but the accuracy of location is at 10km! Because we don't have the 1km locations we will treat the CS data as if it is at 10km resolution in the next section, but it is important to consider what this means for interpretation later on.
 
 # 4. Aggregating raster data
 
@@ -303,11 +310,150 @@ Sometimes we may be interested in where there is not a match between two dataset
 
 We may also want to summarise data in a non-spatial way. For example summarising from daily to monthly, or summarising by a categorical variable such as habitat. In the below example, we calculate the mean and total agricultural holding per broad habitat type. The [tidyr](https://cran.r-project.org/web/packages/tidyr/index.html) and [dplyr](https://cran.rstudio.com/web/packages/dplyr/vignettes/introduction.html) packages offer many functions for manipulating and summarising data in a readable and user friendly way. 
 
-```{r}
+```{r, message = F}
 library(dplyr)
 ag_summary <- group_by(cs_data, BROAD_HABITAT_NAME) %>%
   summarise(mean_ag_holding = mean(ag_holding, na.rm=TRUE),
             total_ag_holding = sum(ag_holding, na.rm=TRUE))
 ag_summary
 ```
+
+#8. Relationships between data
+
+To look at relationships between habitat area and Agcensus data (specifically the total area of holdings) using the merged dataset created in section 6. However, we want to make two changes: 
+
+1. We want to add in the other Agcensus data (area of crops, grass and woodlands as well as total number of holdings)
+
+2. We want to summarise the data by 1km square
+
+We could repeat the process of creating an aggregated raster layer for each Agcensus data type and then extracting by CS square, but instead we will use a different process to demonstrate some alternative techniques.
+
+Firstly, we add two new columns to the `ag_data` which give the 10km grid references. We can then use `aggregate` to calculate the mean agricultural data per 10km square (this is a non-spatial alternative to the raster aggregration process in section 4).
+
+
+```{r}
+ag_data$x_10km <- floor(ag_data$x/ 10000)*10000
+ag_data$y_10km <- floor(ag_data$y/ 10000)*10000
+
+ag_10km <- aggregate(. ~ x_10km + y_10km, data = ag_data, FUN = mean)
+```
+
+Secondly we will use another package called `sqldf` to use the SQL language to join the datasets together. This package is very useful if you are used to using SQL in other programs such as SAS. Here we are going to use a "left join", equivalent to `all.x=TRUE` using the `match` function. This means that all Countryside Survey squares are returned in the `cs_join_ag` table, even if they do not match any Agcensus data (e.g. they are in Scotland).
+
+```{r, message = F, verbose = F}
+library(sqldf)
+
+cs_join_ag <- sqldf("select * 
+                    from cs_areas as t1
+                    left join ag_10km as t2
+                    on t1.EASTING = t2.x_10km
+                    and t1.NORTHING = t2.y_10km")
+```
+
+
+However, we may need to remove rows where there is missing data for some analyses. We can do this with the `complete.cases` function. This returns only rows with no `NA` values.
+
+```{r}
+cs_join_agCC <- cs_join_ag[complete.cases(cs_join_ag),]
+#124 obs left
+```
+
+We can use the plot produced by the `pairs` function again to visualise relationships. We first use the `subset` function to remove unwanted variables.
+
+```{r}
+cs_join_agCC <- subset(cs_join_agCC, select = -c(x_10km,y_10km,x,y))
+
+pairs(cs_join_agCC[,-c(1,2,3)]) # don't plot country/county columns
+```
+
+This gives us a lot of relationships to view! Try removing further columns in the `pairs` command to focus on a few of interest. 
+
+We can also use the `cor` function to produce a table of correlations.
+
+```{r, eval = F}
+cor(cs_join_agCC[,-c(1,2,3)])
+```
+
+We can think about relationships we might expect to occur between CS and Agcensus data. For example, we would expect woodland area in CS to be correlated with woodland area in ag census...
+
+```{r}
+plot(cs_join_agCC$woodland_area, cs_join_agCC$Woodland.on.holding..c8.)
+cor(cs_join_agCC$woodland_area, cs_join_agCC$Woodland.on.holding..c8.)
+```
+
+In this example there isn't much evidence for a relationship, but that might not be surprising given the fake CS locations!
+
+For most of the relationships between CS and Agcensus it might be appropriate to investigate correlations as it not clear which variable would affect which. The exception is relationships with easting and northing, it is clear that easting can affect arable area but not the other way round! In this case, a regression model can be built.
+
+Model with arable area measured in CS:
+
+```{r}
+lm1 <- lm(arable_area ~ EASTING, data = cs_join_agCC)
+
+summary(lm1)
+```
+
+Model with arable area from Agcensus:
+
+```{r}
+lm2 <- lm(Total.Crops...Fallow..c35. ~ EASTING, data = cs_join_agCC)
+
+summary(lm2)
+```
+
+
+You can consider other relationships that can be investigated with regression relationships. Extensions to include multiple predictors or generalised linear models could be developed e.g. a zero inflated distribution could be used to describe the area of priority habitat.
+
+One aspect that has not been investigated in this short tutorial but could be a useful exercise to continue improving your skills in integration would be to look at change over time. We looked at the earliest Countryside Survey and matched to an appropriate Agricultural Census but the survey has been repeated three times since then. You could look at:
+
+- Whether the patterns in data are the same now as they were in 1978
+- Whether change in e.g. area of priority habitats is related to changes in agricultural practice
+- Whether additional covariates from either Agricultural Census or other sources (e.g. climate data) explain changes in habitat areas
+
+Things to consider might be:
+
+- How to choose appropriate data to match e.g. which Agricultural Census years correspond to Countryside Survey years?
+- How to match up locations between years? Do you need a different process for Countryside Survey data and Agricultural Census data?
+- How to define an appropriate model to look at change over time
+
+
+#9. Interpretation and further reading
+
+When considering how to intepret an integrated analysis we need to think about the assumptions we made in the analysis. For example, in the analysis above we assumed:
+
+1. It was logical and valid to join the two datasets. We justified this by using a similar temporal period and spatial scope (late 1970s, UK/England).
+
+2. The data meanings have been interpreted and used correctly. This requires proper investigation of metadata to understand e.g. units, methods of measurement that will influence interpretation of the results. Metadata for the datasets used in this analysis is available online from [agcensus](https://access.edina.ac.uk/agcensus/) and  [EIDC](https://catalogue.ceh.ac.uk/eidc/documents#term=Countryside+Survey&page=1). Note not all metadata is of comparable quality and it is important to investigate this before beginning an analysis.
+
+3. The spatial scales (extent and resolution) are comparable. Here we had two problems to contend with: 1) the CS data locations were given at a lower resolution to preserve confidentiality, 2) the Agcensus data was then averaged to the scale of the low resolution CS data. Consider what this means for interpretation - what would you write in a paper?
+
+Interpretation is more complex with an integrated analysis so put aside plenty of time to think about this.
+
+
+##Further reading
+
+[A framework for data fusion in species distribution modelling (Pacifici *et al*)](http://onlinelibrary.wiley.com/doi/10.1002/ecy.1710/full)
+
+[Combining and aggregating environmental data (Maas-Hebner *et al*)](https://www.ncbi.nlm.nih.gov/pubmed/25893765)
+
+[Ecological data sharing (Michener *et al*)](http://www.sciencedirect.com/science/article/pii/S1574954115001004)
+
+[BES guide to Data Management in Ecology and Evolution](http://www.britishecologicalsociety.org/wp-content/uploads/Publ_Data-Management-Booklet.pdf)
+
+
+##Contact us
+
+This tutorial was put together for a Data Integration course due to run on 4th May 2017 which was unfortunately cancelled. Therefore we have not tested this course in a real life environment so there may be bugs and errors. Please let us know if you find any by contacting us at susjar@ceh.ac.uk or requesting access to the repository on Github. We are happy for you to re-use any part of this tutorial in any in-person or online course. 
+
+
+This course was developed by the British Ecological Society Quantitative Ecology and Agricultural Ecology Special Interest Groups. You can contact the SIGs by email (quantitative@britishecologicalsociety.org and agricultural@britishecologicalsociety.org) or on Twitter (@BES_QE_SIG and @bes_aeg). 
+
+
+#Happy Data Integration!!
+
+
+
+
+
+
 
