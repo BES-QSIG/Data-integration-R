@@ -12,8 +12,7 @@ which are listed below. These can be installed using the
 -   [dplyr](https://cran.r-project.org/web/packages/dplyr/index.html)
 -   [sqldf](https://cran.r-project.org/web/packages/sqldf/index.html)
 
-1. Loading Data
-===============
+# 1. Loading Data
 
 R packages exist to load in pretty much any form of data you can think
 of. Some key examples include:
@@ -38,8 +37,7 @@ of. Some key examples include:
     contains functions to fetch data from webpages (along with lots more
     functionality for interfacing with webpages)
 
-1.1 Reading in .csv files
--------------------------
+## 1.1 Reading in .csv files
 
 Most of the data we will use in this tutorial are stored in .csv files.
 Below we use the `read.csv` function to load these files and the
@@ -64,8 +62,7 @@ location on your computer.
     summary(cs_locs)
     summary(ag_data)
 
-2. Fetching data from online sources
-====================================
+# 2. Fetching data from online sources
 
 Plenty of sources of data exist online, and a lot of these have related
 R packages to facilitate their downloading. The
@@ -77,8 +74,7 @@ downloading the MODIS remote sensing data and
 [bioclim](https://rforge.net/doc/packages/climates/bioclim.html) for
 recreating the 19 bioclimatic variables used by WorldClim.
 
-2.1 Downloading species' occurrence data using [`spocc`](https://ropensci.org/tutorials/spocc_tutorial.html)
-------------------------------------------------------------------------------------------------------------
+## 2.1 Downloading species' occurrence data using [`spocc`](https://ropensci.org/tutorials/spocc_tutorial.html)
 
 We are going to use the `spocc` package to download records for
 yellowhammer (*Emberiza citrinella*) from GBIF.
@@ -119,8 +115,7 @@ data to a dataframe
 
 ### 
 
-3. Visualising and exploring data:
-==================================
+# 3. Visualising and exploring data:
 
 Here we will look in more detail at the data from the .csv files you
 loaded in part 1. There are three tables:
@@ -212,8 +207,7 @@ little arable area, with a long tail of squares with high areas of
 arable land. Does the same pattern occur in the distributions of the
 other habitats?
 
-3.1 Mapping the Countryside Survey data
----------------------------------------
+## 3.1 Mapping the Countryside Survey data
 
 To enable us to map the Countryside Survey data we need to join it to
 location data which sits in a separate file called `CS_locs`.
@@ -263,8 +257,7 @@ case arable):
 
 Not much spatial pattern due to the false locations!
 
-3.2 Exploring and mapping the Agcensus data
--------------------------------------------
+## 3.2 Exploring and mapping the Agcensus data
 
 The Agcensus data in `ag_data` has a selection of data available from
 the [agcensus](https://access.edina.ac.uk/agcensus/) webpage (total
@@ -338,8 +331,7 @@ Because we don't have the 1km locations we will treat the CS data as if
 it is at 10km resolution in the next section, but it is important to
 consider what this means for interpretation later on.
 
-4. Aggregating raster data
-==========================
+# 4. Aggregating raster data
 
 If we want to be able to compare the total area of agricultural holdings
 to the 10km CS squares, we need to aggregate the agricultural census
@@ -357,8 +349,7 @@ to aggregate a raster. For example, if we had elevation data, we may be
 more interested in the variation of the terrain, rather than a mean
 elevation. This can be done by using the argument `fun = var`.
 
-5. Matching spatial data sources
-================================
+# 5. Matching spatial data sources
 
 Spatial data come associated with coordinate reference systems. This
 allows data sets stored or displayed with different CRS's to be compared
@@ -394,8 +385,7 @@ raster to each of the CS points using the `extract` function.
 
     cs_points$ag_holding <- extract(ag_10km, cs_points)
 
-6. Joining datasets
-===================
+# 6. Joining datasets
 
 Now that we have the agricultural holdings data for each CS location, we
 can attach that information to the CS data to create a complete dataset.
@@ -429,8 +419,7 @@ arguments. These are equivalent to what is known as a left join, right
 join or full outer join respectively. The join we did above is known as
 an inner join.
 
-7. Summarising data
-===================
+# 7. Summarising data
 
 We may also want to summarise data in a non-spatial way. For example
 summarising from daily to monthly, or summarising by a categorical
@@ -465,8 +454,7 @@ readable and user friendly way.
     ## 10                Calcareous Grassland        302.7874         2119.512
     ## # ... with 14 more rows
 
-8. Relationships between data
-=============================
+# 8. Relationships between data
 
 To look at relationships between habitat area and Agcensus data
 (specifically the total area of holdings) using the merged dataset
@@ -631,8 +619,7 @@ Things to consider might be:
     process for Countryside Survey data and Agricultural Census data?
 -   How to define an appropriate model to look at change over time
 
-9. Interpretation and further reading
-=====================================
+# 9. Interpretation and further reading
 
 When considering how to intepret an integrated analysis we need to think
 about the assumptions we made in the analysis. For example, in the
