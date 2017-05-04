@@ -457,7 +457,7 @@ readable and user friendly way.
 # 8. Relationships between data
 
 To look at relationships between habitat area and Agcensus data
-(specifically the total area of holdings) using the merged dataset
+we could use the merged dataset
 created in section 6. However, we want to make two changes:
 
 1.  We want to add in the other Agcensus data (area of crops, grass and
