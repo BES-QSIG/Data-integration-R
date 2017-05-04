@@ -56,9 +56,7 @@ location on your computer.
 
     #read in csv files using read.csv
     cs_data <- read.csv("LANDSCAPE_AREA_FEATURE_HAB_1978.csv")
-
     cs_locs <- read.csv("CS_locations_false.csv")
-
     ag_data <- read.csv("EnglandWales_1979_2k.csv")
 
     #Look at summaries of the three csv files you have loaded
@@ -97,6 +95,9 @@ download records for a species of interest, here we will download
 occurrence records for the yellowhammer from the GBIF database.
 
     library(spocc)
+
+    ## Warning: package 'spocc' was built under R version 3.3.3
+
     yellowhammer <- occ(query = 'Emberiza citrinella', from = 'gbif', geometry = bb)
 
 The `spocc` package also provides a function to convert the retrieved
@@ -122,41 +123,48 @@ data to a dataframe
 ==================================
 
 Here we will look in more detail at the data from the .csv files you
-loaded in part 1. There are three files:
+loaded in part 1. There are three tables:
 
--   EnglandWales\_1979\_2k.csv gives a range of Agricultural Census
-    variables for year 1979 at 2km gridded resolution. A range of
-    additional variables and/or years can be downloaded from
+-   `ag_data` gives a range of Agricultural Census variables for year
+    1979 at 2km gridded resolution. A range of additional variables
+    and/or years can be downloaded from
     [agcensus](https://access.edina.ac.uk/agcensus/)
 
--   LANDSCAPE\_AREA\_FEATURE\_HAB\_1978.csv gives the Countryside Survey
-    habitat areas for 256 1km squares surveyed in 1978. Additional
-    datasets and/or years can be downloaded from the
+-   `cs_data` gives the Countryside Survey habitat areas for 256 1km
+    squares surveyed in 1978. Additional datasets and/or years can be
+    downloaded from the
     [EIDC](https://catalogue.ceh.ac.uk/eidc/documents#term=Countryside+Survey&page=1)
 
--   CS\_locations\_false.csv gives (incorrect) locations for the 256
-    CS squares. The locations are confidential which is why false
-    locations are given for the purposes of this tutorial. True
-    locations are available on request at 10km resolution via the
+-   `cs_locs` gives (incorrect) locations for the 256 CS squares. The
+    locations are confidential which is why false locations are given
+    for the purposes of this tutorial. True locations are available on
+    request at 10km resolution via the
     [EIDC](https://catalogue.ceh.ac.uk/eidc/documents#term=Countryside+Survey&page=1)
 
-Firstly, we can remove some columns that aren't useful from the CS data.
+Firstly, we will look at the `cs_data` table and do some exploratory
+analysis of this data, before moving on to look at integrating this
+information with the `cs_locs` and `ag_data` tables.
+
+We can start by removing some columns that aren't useful from the CS
+data (year, ID code, land class and environmental zone which we won't be
+using in the analysis).
 
     cs_data <- subset(cs_data, select = -c(YEAR,ID,LAND_CLASS90,EZ_DESC_07))
 
-The CS data holds data on habitat area. We can make a simple boxplot to
-compare the average habitat area per 1 km Countryside Survey sample
-square between habitats.
+The CS data holds data on habitat area mapped within each 1km square. We
+can make a simple boxplot to compare the average habitat area per 1km
+Countryside Survey sample square for each habitat.
 
     boxplot(cs_data$AREA ~ cs_data$BROAD_HABITAT)
 
 ![](Data-integration-R_files/figure-markdown_strict/unnamed-chunk-8-1.png)
 
-This is very messy! Let's focus on a few habitats of interest and group
-priority habitats together in one category. Arable, improved grassland
-and woodland, along with the total priority habitat area, might be
-expected to be related to agricultural intensity so we'll focus on these
-habitats to start with.
+This is very messy and not very informative! Let's focus on a few
+habitats of interest and group the priority habitats (e.g. saltmarsh,
+blanket bog) together in one category. Arable, improved grassland and
+woodland, along with the total priority habitat area, might be expected
+to be related to agricultural intensity so we'll focus on these habitats
+to start with.
 
 Firstly, we'll create new columns for the area of each of our habitats
 of interest
@@ -170,24 +178,27 @@ of interest
 
 Now we will create a new column of priority habitat area
 
-    #flag up priority habitats
     cs_data$priority <- 0
     cs_data$priority[cs_data$BROAD_HABITAT %in% 24:45] <- 1
-
     cs_data$priority_area <- cs_data$AREA*cs_data$priority
 
 Finally, we can aggregate the data by CS 1km square (SQUARE field) to
 calculate the sum of priority habitat for each square
 
-    #calculate area of priority habitat per square
     cs_areas <- aggregate(cbind(arable_area,impgrass_area,woodland_area,priority_area) ~ SQUARE + COUNTRY + COUNTY, data = cs_data,FUN = sum)
 
-We can now plot the average area of each habitat type in a 1 km square
-for each country e.g. below we plot the area of arable for each country.
+We can now look at some exploratory plots of the aggregated data. For
+example, we could look at how the average area of arable habitat in each
+CS square varies between England, Scotland and Wales.
 
     boxplot(cs_areas$arable_area ~ cs_areas$COUNTRY)
 
 ![](Data-integration-R_files/figure-markdown_strict/unnamed-chunk-12-1.png)
+
+It is fairly clear that the area of arable land in a 1km CS square tends
+to be higher in England than in Scotland and Wales. You can swap
+`arable_area` for `priority_area` to see if a similar pattern holds for
+the area of priority habitats.
 
 We can also look at the distributions of each habitat area by plotting a
 histogram.
@@ -196,22 +207,22 @@ histogram.
 
 ![](Data-integration-R_files/figure-markdown_strict/unnamed-chunk-13-1.png)
 
-You can investigate other habitat areas (improved grassland, woodland
-and priority habitats) by changing the column (`$`) defined in the
-`boxplot` and `hist` commands.
+Here we can see that the majority of the 256 CS squares have relatively
+little arable area, with a long tail of squares with high areas of
+arable land. Does the same pattern occur in the distributions of the
+other habitats?
 
 3.1 Mapping the Countryside Survey data
 ---------------------------------------
 
 To enable us to map the Countryside Survey data we need to join it to
-location data which sits in a separate file called 'CS\_locs'.
+location data which sits in a separate file called `CS_locs`.
 
 The next step is to join the habitat data to this location information.
 Note these locations are incorrect due to confidentiality over
 Countryside Survey locations.
 
     #add (false) locations where SQUARE column matches between data sets
-
     cs_areas$EASTING <- cs_locs$Easting[match( cs_areas$SQUARE,cs_locs$SQUARE)]
     cs_areas$NORTHING <- cs_locs$Northing[match( cs_areas$SQUARE,cs_locs$SQUARE)]
 
@@ -269,7 +280,7 @@ relationships between different data.
 ![](Data-integration-R_files/figure-markdown_strict/unnamed-chunk-17-1.png)
 
 Here only data from the first 1000 rows are plotted to speed up drawing
-of the plot. Which variables are related to each other? does this make
+of the plot. Which variables are related to each other? Does this make
 sense?
 
 We can then use the `blighty` package again to map the data.
@@ -431,6 +442,9 @@ packages offer many functions for manipulating and summarising data in a
 readable and user friendly way.
 
     library(dplyr)
+
+    ## Warning: package 'dplyr' was built under R version 3.3.2
+
     ag_summary <- group_by(cs_data, BROAD_HABITAT_NAME) %>%
       summarise(mean_ag_holding = mean(ag_holding, na.rm=TRUE),
                 total_ag_holding = sum(ag_holding, na.rm=TRUE))
@@ -493,22 +507,17 @@ the `cs_join_ag` table, even if they do not match any Agcensus data
                         on t1.EASTING = t2.x_10km
                         and t1.NORTHING = t2.y_10km")
 
-    ## Warning: Quoted identifiers should have class SQL, use DBI::SQL() if the
-    ## caller performs the quoting.
-
 However, we may need to remove rows where there is missing data for some
 analyses. We can do this with the `complete.cases` function. This
 returns only rows with no `NA` values.
 
     cs_join_agCC <- cs_join_ag[complete.cases(cs_join_ag),]
-    #124 obs left
 
 We can use the plot produced by the `pairs` function again to visualise
 relationships. We first use the `subset` function to remove unwanted
 variables.
 
     cs_join_agCC <- subset(cs_join_agCC, select = -c(x_10km,y_10km,x,y))
-
     pairs(cs_join_agCC[,-c(1,2,3)]) # don't plot country/county columns
 
 ![](Data-integration-R_files/figure-markdown_strict/unnamed-chunk-31-1.png)
@@ -533,12 +542,12 @@ correlated with woodland area in ag census...
     ## [1] -0.002118966
 
 In this example there isn't much evidence for a relationship, but that
-might not be surprising given the fake CS locations!
+might not be surprising given the incorrect CS locations!
 
 For most of the relationships between CS and Agcensus it might be
 appropriate to investigate correlations as it not clear which variable
-would affect which. The exception is relationships with easting and
-northing, it is clear that easting can affect arable area but not the
+would affect which. The exception is relationships with Easting and
+Northing, it is clear that Easting can affect arable area but not the
 other way round! In this case, a regression model can be built.
 
 Model with arable area measured in CS:
@@ -566,7 +575,7 @@ Model with arable area measured in CS:
     ## Multiple R-squared:  0.0005961,  Adjusted R-squared:  -0.007596 
     ## F-statistic: 0.07277 on 1 and 122 DF,  p-value: 0.7878
 
-Model with arable area from Agcensus:
+Model with crop area from Agcensus:
 
     lm2 <- lm(Total.Crops...Fallow..c35. ~ EASTING, data = cs_join_agCC)
 
@@ -591,6 +600,10 @@ Model with arable area from Agcensus:
     ## Multiple R-squared:  0.4457, Adjusted R-squared:  0.4412 
     ## F-statistic: 98.12 on 1 and 122 DF,  p-value: < 2.2e-16
 
+We can see when using the Agcensus data and Easting that there is more
+crop and fallow land in the east of the UK (this should be what we
+expected!).
+
 You can consider other relationships that can be investigated with
 regression relationships. Extensions to include multiple predictors or
 generalised linear models could be developed e.g. a zero inflated
@@ -600,10 +613,11 @@ One aspect that has not been investigated in this short tutorial but
 could be a useful exercise to continue improving your skills in
 integration would be to look at change over time. We looked at the
 earliest Countryside Survey and matched to an appropriate Agricultural
-Census but the survey has been repeated three times since then. You
-could look at:
+Census but the survey has been repeated three times since then (1990,
+1998 and 2007). You could look at:
 
--   Whether the patterns in data are the same now as they were in 1978
+-   Whether the patterns in data were the same in 2007 as they were in
+    1978
 -   Whether change in e.g. area of priority habitats is related to
     changes in agricultural practice
 -   Whether additional covariates from either Agricultural Census or
